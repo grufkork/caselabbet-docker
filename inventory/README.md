@@ -13,6 +13,11 @@ If a component exists in both Zettle and the sheet, they are merged to one entry
 
 Most free or lab components will only be in the sheet, as these are a) not sold and b) too numerous to manage in Zettle.
 
+## Zettle API rate limits and pagination
+Both the Products and Inventory endpoints return paginated responses. The inventory endpoint (`/v3/stock`) returns max 100 entries per page by default. Pagination is cursor-based via the `Link` response header — the code follows the `rel="next"` URL until no more pages are returned. A 0.5s delay is added between requests to stay well within the rate limit (4 req/s for inventory).
+
+Source: https://developer.zettle.com/docs/api/inventory/overview
+
 ## isolated local dev notes and instructions
 Sometimes one will want to check/ improve or solve bugs in inventory collator
 program for this one needs to run a local non scheduled version!

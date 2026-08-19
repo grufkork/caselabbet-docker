@@ -38,27 +38,57 @@ def auth():
 
 
 
+def parse_link_next(response):
+    """Parse the Link header for the next page URL (cursor-based pagination)."""
+    link_header = response.headers.get("Link", "")
+    if 'rel="next"' in link_header:
+        # Format: <https://...?cursor=xxx&limit=100>; rel="next"
+        start = link_header.index("<") + 1
+        end = link_header.index(">")
+        return link_header[start:end]
+    return None
+
 def fetch_products():
     headers = {
         "Authorization": f"Bearer {oauth_token}"
     }
-    res = requests.get(ZETTLE_PRODUCTS_ENDPOINT, headers=headers)
-    if res.status_code == 200:
-        with open("data/zettle_products.json", "w") as f:
-            f.write(res.text)
-    else:
-        print(f"Error: {res.status_code} - {res.text}")
+    all_products = []
+    url = ZETTLE_PRODUCTS_ENDPOINT
+
+    while url:
+        res = requests.get(url, headers=headers)
+        if res.status_code != 200:
+            print(f"Error fetching products: {res.status_code} - {res.text}")
+            break
+        all_products.extend(res.json())
+        url = parse_link_next(res)
+        if url:
+            time.sleep(0.5)
+
+    with open("data/zettle_products.json", "w") as f:
+        json.dump(all_products, f)
+    print(f"Fetched {len(all_products)} products")
 
 def fetch_inventory():
     headers = {
         "Authorization": f"Bearer {oauth_token}"
     }
-    res = requests.get(ZETTLE_INVENTORY_ENDPOINT, headers=headers)
-    if res.status_code == 200:
-        with open("data/zettle_inventory.json", "w") as f:
-            f.write(res.text)
-    else:
-        print(f"Error: {res.status_code} - {res.text}")
+    all_inventory = []
+    url = ZETTLE_INVENTORY_ENDPOINT
+
+    while url:
+        res = requests.get(url, headers=headers)
+        if res.status_code != 200:
+            print(f"Error fetching inventory: {res.status_code} - {res.text}")
+            break
+        all_inventory.extend(res.json())
+        url = parse_link_next(res)
+        if url:
+            time.sleep(0.5)
+
+    with open("data/zettle_inventory.json", "w") as f:
+        json.dump(all_inventory, f)
+    print(f"Fetched {len(all_inventory)} inventory entries")
     
 
 
@@ -192,7 +222,9 @@ def update_components():
 
         target_product = None
         for product in products:
-            if product.name.strip().lower() == zproduct["name"].strip().lower():
+            # strip down spaces and all bös. Compare RAW text...
+            # Gets weird errors where excel or zettle has an extra space...
+            if " ".join(product.name.split()).lower() == " ".join(zproduct["name"].split()).lower():
                 product.zettle_status = SHEET_ZETTLE_MATCHED
                 target_product = product
         if target_product is None:
